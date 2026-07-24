@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/* Palette: cool grey "paper", ink black, Klein blue for anything live,
+   acid yellow reserved for the one moment of confirmation (copy). */
+@theme {
+  --color-paper: #e6e8ec;
+  --color-card: #fbfbfc;
+  --color-ink: #14161a;
+  --color-muted: #5b6069;
+  --color-line: #c6cad2;
+  --color-blue: #1b39ff;
+  --color-blue-soft: #f2f3ff;
+  --color-acid: #e4ff3a;
+  --color-danger: #c8102e;
+  --color-danger-soft: #fbeced;
+
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* The ticket tears off when a page goes live. */
+  --animate-tear: tear 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes tear {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+  }
+  body {
+    margin: 0;
+    font-family: var(--font-mono);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-blue);
+    outline-offset: 3px;
+  }
+}
