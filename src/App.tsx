@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ConfigResponse, PublishedPage, User } from "../shared/types";
 import AccountPanel from "./components/AccountPanel";
 import DropZone from "./components/DropZone";
+import LoginScreen from "./components/LoginScreen";
 import PageList from "./components/PageList";
 import Ticket from "./components/Ticket";
 import { ApiError, deletePage, getConfig, getMe, listPages, loginWithGoogle, logout, uploadHtml } from "./lib/api";
@@ -167,6 +168,17 @@ export default function App() {
   }, []);
 
   const origin = typeof window === "undefined" ? "" : window.location.origin;
+
+  if (!user) {
+    return (
+      <LoginScreen
+        clientId={config.googleClientId}
+        busy={busy}
+        error={error}
+        onCredential={signIn}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[760px] px-5 pt-7 pb-20">

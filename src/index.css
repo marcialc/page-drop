@@ -46,3 +46,18 @@
     outline-offset: 3px;
   }
 }
+
+@layer components {
+  /* Graph paper behind the sign-in stub, with the light turned up under the card. */
+  .login-grid {
+    background-color: var(--color-paper);
+    background-image:
+      radial-gradient(38rem 26rem at 50% 46%, rgba(251, 251, 252, 0.92), transparent 72%),
+      linear-gradient(to right, rgba(20, 22, 26, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(20, 22, 26, 0.05) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      22px 22px,
+      22px 22px;
+  }
+}
