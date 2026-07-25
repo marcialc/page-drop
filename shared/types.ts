@@ -10,6 +10,27 @@ export interface PublishedPage {
   download: string;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  picture: string;
+}
+
+export interface Limits {
+  maxUploadBytes: number;
+  maxPages: number;
+}
+
+export interface ConfigResponse {
+  googleClientId: string;
+  limits: Limits;
+}
+
+export interface MeResponse {
+  user: User | null;
+}
+
 export interface ListResponse {
   pages: PublishedPage[];
 }

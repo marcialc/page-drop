@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import type { PublishedPage } from "../shared/types";
+import type { ConfigResponse, PublishedPage, User } from "../shared/types";
+import AccountPanel from "./components/AccountPanel";
 import DropZone from "./components/DropZone";
-import KeyPanel from "./components/KeyPanel";
 import PageList from "./components/PageList";
 import Ticket from "./components/Ticket";
-import { useToken } from "./hooks/useToken";
-import { ApiError, deletePage, listPages, uploadHtml } from "./lib/api";
+import { ApiError, deletePage, getConfig, getMe, listPages, loginWithGoogle, logout, uploadHtml } from "./lib/api";
+import { formatBytes } from "./lib/format";
+
+const DEFAULT_CONFIG: ConfigResponse = {
+  googleClientId: "",
+  limits: { maxUploadBytes: 20 * 1024 * 1024, maxPages: 100 },
+};
 
 export default function App() {
-  const [token, setToken] = useToken();
+  const [config, setConfig] = useState<ConfigResponse>(DEFAULT_CONFIG);
+  const [user, setUser] = useState<User | null>(null);
   const [pages, setPages] = useState<PublishedPage[]>([]);
   const [latest, setLatest] = useState<PublishedPage | null>(null);
   const [slug, setSlug] = useState("");
@@ -20,9 +26,14 @@ export default function App() {
   });
 
   const refresh = useCallback(async () => {
+    if (!user) {
+      setPages([]);
+      setListState({ loading: false, message: "Sign in to see your published pages." });
+      return;
+    }
     setListState((s) => ({ ...s, loading: true }));
     try {
-      setPages(await listPages(token));
+      setPages(await listPages());
       setListState({ loading: false, message: null });
     } catch (err) {
       setPages([]);
@@ -30,13 +41,26 @@ export default function App() {
         loading: false,
         message:
           err instanceof ApiError && err.status === 401
-            ? "Set your upload key to see published pages."
+            ? "Sign in to see your published pages."
             : err instanceof Error
               ? err.message
               : "Could not load your pages.",
       });
     }
-  }, [token]);
+  }, [user]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [nextConfig, nextUser] = await Promise.all([getConfig(), getMe()]);
+        setConfig(nextConfig);
+        setUser(nextUser);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load account.");
+      }
+    }
+    void load();
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -44,14 +68,23 @@ export default function App() {
 
   const publish = useCallback(
     async (html: string, name: string) => {
+      if (!user) {
+        setError("Sign in with Google to publish pages.");
+        return;
+      }
       if (!html.trim()) {
         setError("That file is empty.");
+        return;
+      }
+      const size = new TextEncoder().encode(html).length;
+      if (size > config.limits.maxUploadBytes) {
+        setError(`That file is over the ${formatBytes(config.limits.maxUploadBytes)} limit.`);
         return;
       }
       setBusy(true);
       setError(null);
       try {
-        const page = await uploadHtml(html, { name, slug: slug.trim() }, token);
+        const page = await uploadHtml(html, { name, slug: slug.trim() });
         setLatest(page);
         setSlug("");
         await refresh();
@@ -61,14 +94,18 @@ export default function App() {
         setBusy(false);
       }
     },
-    [refresh, slug, token],
+    [config.limits.maxUploadBytes, refresh, slug, user],
   );
 
   const publishFile = useCallback(
     async (file: File) => {
+      if (file.size > config.limits.maxUploadBytes) {
+        setError(`That file is over the ${formatBytes(config.limits.maxUploadBytes)} limit.`);
+        return;
+      }
       await publish(await file.text(), file.name);
     },
-    [publish],
+    [config.limits.maxUploadBytes, publish],
   );
 
   // ⌘V anywhere on the page publishes whatever HTML is on the clipboard.
@@ -94,13 +131,40 @@ export default function App() {
   async function remove(page: PublishedPage) {
     if (!confirm(`Delete ${page.id}? The link stops working.`)) return;
     try {
-      await deletePage(page.id, token);
+      await deletePage(page.id);
       if (latest?.id === page.id) setLatest(null);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed.");
     }
   }
+
+  const signIn = useCallback(async (credential: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      setUser(await loginWithGoogle(credential));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google login failed.");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await logout();
+      setUser(null);
+      setLatest(null);
+      setPages([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign out failed.");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   const origin = typeof window === "undefined" ? "" : window.location.origin;
 
@@ -110,7 +174,13 @@ export default function App() {
         <div className="text-[19px] font-bold tracking-[0.22em] uppercase">
           Page<span className="text-blue">Drop</span>
         </div>
-        <KeyPanel token={token} onSave={setToken} />
+        <AccountPanel
+          clientId={config.googleClientId}
+          user={user}
+          busy={busy}
+          onCredential={signIn}
+          onLogout={signOut}
+        />
       </header>
 
       <p className="mb-5.5 max-w-[46ch] text-[13px] text-muted">
@@ -118,7 +188,7 @@ export default function App() {
         you.
       </p>
 
-      <DropZone busy={busy} onFile={publishFile} onHtml={publish} />
+      <DropZone busy={busy} disabled={!user} onFile={publishFile} onHtml={publish} />
 
       <div className="mt-3 flex items-center gap-2 text-[12px] text-muted">
         <label htmlFor="slug">Custom link</label>
@@ -145,6 +215,7 @@ export default function App() {
         pages={pages}
         loading={listState.loading}
         message={listState.message}
+        pageLimit={config.limits.maxPages}
         onDelete={remove}
       />
 
@@ -152,7 +223,7 @@ export default function App() {
         <b className="font-bold text-ink">Ship straight from the terminal:</b>
         <br />
         <code className="rounded-sm bg-line px-1.5 py-0.5 text-[12px] break-all">
-          {`curl -X POST ${origin}/api/upload -H "Authorization: Bearer YOUR_KEY" -H "Content-Type: text/html" --data-binary @index.html`}
+          {`curl -X POST ${origin}/api/upload -H "Authorization: Bearer AUTH_TOKEN" -H "Content-Type: text/html" --data-binary @index.html`}
         </code>
       </footer>
     </div>

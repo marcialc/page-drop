@@ -1,4 +1,4 @@
-import type { ListResponse, PublishedPage } from "../../shared/types";
+import type { ConfigResponse, ListResponse, MeResponse, PublishedPage, User } from "../../shared/types";
 
 export class ApiError extends Error {
   status: number;
@@ -7,10 +7,6 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.status = status;
   }
-}
-
-function withAuth(token: string, extra: Record<string, string> = {}): Record<string, string> {
-  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
 }
 
 async function parse<T>(response: Response): Promise<T> {
@@ -26,12 +22,38 @@ async function parse<T>(response: Response): Promise<T> {
   return data as T;
 }
 
+export async function getConfig(): Promise<ConfigResponse> {
+  const response = await fetch("/api/config");
+  return parse<ConfigResponse>(response);
+}
+
+export async function getMe(): Promise<User | null> {
+  const response = await fetch("/api/me");
+  const data = await parse<MeResponse>(response);
+  return data.user;
+}
+
+export async function loginWithGoogle(credential: string): Promise<User> {
+  const response = await fetch("/api/auth/google", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ credential }),
+  });
+  const data = await parse<MeResponse>(response);
+  if (!data.user) throw new ApiError("Google login failed.", 401);
+  return data.user;
+}
+
+export async function logout(): Promise<void> {
+  const response = await fetch("/api/logout", { method: "POST" });
+  await parse<{ ok: boolean }>(response);
+}
+
 export async function uploadHtml(
   html: string,
   options: { name?: string; slug?: string },
-  token: string,
 ): Promise<PublishedPage> {
-  const headers = withAuth(token, { "Content-Type": "text/html" });
+  const headers: Record<string, string> = { "Content-Type": "text/html" };
   if (options.name) headers["X-File-Name"] = encodeURIComponent(options.name);
   if (options.slug) headers["X-Slug"] = options.slug;
 
@@ -39,13 +61,13 @@ export async function uploadHtml(
   return parse<PublishedPage>(response);
 }
 
-export async function listPages(token: string): Promise<PublishedPage[]> {
-  const response = await fetch("/api/list", { headers: withAuth(token) });
+export async function listPages(): Promise<PublishedPage[]> {
+  const response = await fetch("/api/list");
   const data = await parse<ListResponse>(response);
   return data.pages;
 }
 
-export async function deletePage(id: string, token: string): Promise<void> {
-  const response = await fetch(`/api/page/${id}`, { method: "DELETE", headers: withAuth(token) });
+export async function deletePage(id: string): Promise<void> {
+  const response = await fetch(`/api/page/${id}`, { method: "DELETE" });
   await parse<{ ok: boolean }>(response);
 }

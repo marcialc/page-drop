@@ -2,11 +2,12 @@ import { useRef, useState, type DragEvent } from "react";
 
 interface Props {
   busy: boolean;
+  disabled?: boolean;
   onFile: (file: File) => void;
   onHtml: (html: string, name: string) => void;
 }
 
-export default function DropZone({ busy, onFile, onHtml }: Props) {
+export default function DropZone({ busy, disabled = false, onFile, onHtml }: Props) {
   const [hot, setHot] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const depth = useRef(0); // dragenter/leave fire on children too
@@ -43,8 +44,12 @@ export default function DropZone({ busy, onFile, onHtml }: Props) {
       tabIndex={0}
       aria-label="Choose an HTML file to publish"
       aria-busy={busy}
-      onClick={() => input.current?.click()}
+      aria-disabled={disabled}
+      onClick={() => {
+        if (!disabled) input.current?.click();
+      }}
       onKeyDown={(e) => {
+        if (disabled) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           input.current?.click();
@@ -56,13 +61,13 @@ export default function DropZone({ busy, onFile, onHtml }: Props) {
       onDrop={drop}
       className={`cursor-pointer rounded-sm border-[1.5px] px-6 py-13 text-center transition-colors ${
         hot ? "border-solid border-blue bg-blue-soft" : "border-dashed border-line bg-card hover:border-muted"
-      } ${busy ? "pointer-events-none opacity-60" : ""}`}
+      } ${busy || disabled ? "pointer-events-none opacity-60" : ""}`}
     >
       <h2 className="text-[17px] font-bold tracking-tight">
-        {busy ? "Publishing…" : "Drop an .html file here"}
+        {busy ? "Publishing…" : disabled ? "Sign in to publish" : "Drop an .html file here"}
       </h2>
       <p className="mt-1.5 text-[12.5px] text-muted">
-        or click to choose one · or paste HTML with ⌘V
+        up to 20 MB · 100 pages max
       </p>
       <input
         ref={input}

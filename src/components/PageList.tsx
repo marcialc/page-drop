@@ -8,15 +8,16 @@ interface Props {
   pages: PublishedPage[];
   loading: boolean;
   message: string | null;
+  pageLimit: number;
   onDelete: (page: PublishedPage) => void;
 }
 
-export default function PageList({ pages, loading, message, onDelete }: Props) {
+export default function PageList({ pages, loading, message, pageLimit, onDelete }: Props) {
   return (
     <section>
       <h3 className="mt-11 mb-2.5 flex items-baseline justify-between border-b border-line pb-2 text-[10.5px] tracking-[0.2em] text-muted uppercase">
         <span>Published</span>
-        <span>{pages.length ? `${pages.length} ${pages.length === 1 ? "page" : "pages"}` : ""}</span>
+        <span>{pages.length ? `${pages.length} / ${pageLimit} pages` : ""}</span>
       </h3>
 
       {message ? (
