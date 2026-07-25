@@ -60,7 +60,8 @@ export async function publishPage(
     throw new PageError(`That file is over the ${mb} MB limit.`, 413);
   }
 
-  const id = slug ? slugify(slug) : makeId();
+  // No custom link? Fall back to the file name, then to a random id.
+  const id = slug ? slugify(slug) : slugify(name) || makeId();
   if (!id) throw new PageError("That custom link name has no usable characters.", 400);
 
   const existing = await getPageMeta(env, pageKey(id));
