@@ -3,6 +3,7 @@
   "name": "page-drop",
   "main": "./worker/index.ts",
   "compatibility_date": "2025-05-01",
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
 
   "assets": {
@@ -12,7 +13,7 @@
     "not_found_handling": "single-page-application",
     // ...except these, which the Worker must handle. Without this, a browser
     // visiting /p/abc123 would be served index.html instead of the page.
-    "run_worker_first": ["/api/*", "/p/*"]
+    "run_worker_first": ["/api/*", "/p/*", "/mcp", "/mcp/*"]
   },
 
   "kv_namespaces": [
