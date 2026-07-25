@@ -4,6 +4,7 @@ import AccountPanel from "./components/AccountPanel";
 import DropZone from "./components/DropZone";
 import Footer from "./components/Footer";
 import LoginScreen from "./components/LoginScreen";
+import McpConnect from "./components/McpConnect";
 import PageList from "./components/PageList";
 import Ticket from "./components/Ticket";
 import { ApiError, deletePage, getConfig, getMe, listPages, loginWithGoogle, logout, uploadHtml } from "./lib/api";
@@ -231,6 +232,8 @@ export default function App() {
         pageLimit={config.limits.maxPages}
         onDelete={remove}
       />
+
+      <McpConnect />
 
       <Footer origin={origin} />
     </div>

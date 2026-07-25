@@ -35,6 +35,12 @@ export interface ListResponse {
   pages: PublishedPage[];
 }
 
+/** The signed-in user's personal MCP endpoint. The key is a secret. */
+export interface McpResponse {
+  key: string;
+  url: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }

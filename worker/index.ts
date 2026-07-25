@@ -2,6 +2,7 @@ import type {
   ConfigResponse,
   ErrorResponse,
   ListResponse,
+  McpResponse,
   MeResponse,
   PublishedPage,
 } from "../shared/types";
@@ -9,6 +10,7 @@ import { authenticate, getSession, handleGoogleLogin, handleLogout } from "./aut
 import type { Env } from "./env";
 import { cors, json, pageErrorResponse, tooLarge } from "./http";
 import { handleMcp } from "./mcp";
+import { getOrCreateMcpKey, mcpUrl, rotateMcpKey } from "./mcpkey";
 import {
   deleteOwnedPage,
   listUserPages,
@@ -32,6 +34,18 @@ export default {
         return handleMcp(request, env, ctx);
       }
 
+      // There is no OAuth server here — the MCP key lives in the URL. Answer
+      // discovery probes with a real 404 so clients fail fast instead of trying
+      // to parse the SPA's index.html as metadata.
+      if (pathname.startsWith("/.well-known/oauth")) {
+        return cors(
+          json<ErrorResponse>(
+            { error: "PageDrop does not use OAuth. Use your personal /mcp/<key> URL." },
+            404,
+          ),
+        );
+      }
+
       if (pathname === "/api/config" && request.method === "GET") {
         return cors(
           json<ConfigResponse>({
@@ -39,6 +53,14 @@ export default {
             limits: { maxUploadBytes: MAX_BYTES, maxPages: MAX_PAGES },
           }),
         );
+      }
+
+      if (pathname === "/api/mcp" && request.method === "GET") {
+        return cors(await handleMcpKey(request, env, url, false));
+      }
+
+      if (pathname === "/api/mcp/rotate" && request.method === "POST") {
+        return cors(await handleMcpKey(request, env, url, true));
       }
 
       if (pathname === "/api/me" && request.method === "GET") {
@@ -120,6 +142,19 @@ async function handleUpload(request: Request, env: Env, url: URL): Promise<Respo
   } catch (err) {
     return pageErrorResponse(err);
   }
+}
+
+async function handleMcpKey(
+  request: Request,
+  env: Env,
+  url: URL,
+  rotate: boolean,
+): Promise<Response> {
+  const auth = await authenticate(request, env, url);
+  if (auth instanceof Response) return auth;
+
+  const key = rotate ? await rotateMcpKey(env, auth) : await getOrCreateMcpKey(env, auth);
+  return json<McpResponse>({ key, url: mcpUrl(url.origin, key) });
 }
 
 async function handleList(request: Request, env: Env, url: URL): Promise<Response> {

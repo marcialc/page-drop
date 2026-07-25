@@ -1,4 +1,11 @@
-import type { ConfigResponse, ListResponse, MeResponse, PublishedPage, User } from "../../shared/types";
+import type {
+  ConfigResponse,
+  ListResponse,
+  McpResponse,
+  MeResponse,
+  PublishedPage,
+  User,
+} from "../../shared/types";
 
 export class ApiError extends Error {
   status: number;
@@ -65,6 +72,16 @@ export async function listPages(): Promise<PublishedPage[]> {
   const response = await fetch("/api/list");
   const data = await parse<ListResponse>(response);
   return data.pages;
+}
+
+export async function getMcpConnection(): Promise<McpResponse> {
+  const response = await fetch("/api/mcp");
+  return parse<McpResponse>(response);
+}
+
+export async function rotateMcpConnection(): Promise<McpResponse> {
+  const response = await fetch("/api/mcp/rotate", { method: "POST" });
+  return parse<McpResponse>(response);
 }
 
 export async function deletePage(id: string): Promise<void> {

@@ -5,8 +5,12 @@ import type { User } from "../shared/types";
 import { authenticate } from "./auth";
 import type { Env } from "./env";
 import { PageError } from "./errors";
-import { cors } from "./http";
+import { cors, json } from "./http";
+import { resolveMcpKey } from "./mcpkey";
 import { deleteOwnedPage, listUserPages, MAX_BYTES, MAX_PAGES, publishPage } from "./pages";
+
+const ROUTE = "/mcp";
+const KEY_PATH_PREFIX = `${ROUTE}/`;
 
 export async function handleMcp(
   request: Request,
@@ -14,19 +18,66 @@ export async function handleMcp(
   ctx: ExecutionContext,
 ): Promise<Response> {
   const url = new URL(request.url);
-  const auth = await authenticate(request, env, url);
-  if (auth instanceof Response) return cors(auth);
+  const resolved = await resolveMcpUser(request, env, url);
+  if (resolved instanceof Response) return cors(resolved);
 
-  const server = createPageDropServer(env, url.origin, auth);
+  const server = createPageDropServer(env, url.origin, resolved);
   return createMcpHandler(server, {
-    route: "/mcp",
+    route: ROUTE,
     corsOptions: {
       origin: "*",
       methods: "GET, POST, DELETE, OPTIONS",
       headers: "Content-Type, Authorization, mcp-session-id, x-auth-token",
       exposeHeaders: "mcp-session-id",
     },
-  })(request, env, ctx);
+  })(atRoute(request, url), env, ctx);
+}
+
+/**
+ * Credentials, in the order a client is likely to have them: the key baked into
+ * the URL (connector UIs), then a Bearer header or `?key=` (Claude Code, curl),
+ * then the browser session / admin AUTH_TOKEN.
+ */
+async function resolveMcpUser(request: Request, env: Env, url: URL): Promise<User | Response> {
+  const pathKey = url.pathname.startsWith(KEY_PATH_PREFIX)
+    ? url.pathname.slice(KEY_PATH_PREFIX.length).split("/")[0]
+    : "";
+  const header = request.headers.get("authorization") ?? "";
+  const candidate =
+    pathKey ||
+    url.searchParams.get("key") ||
+    (header.startsWith("Bearer ") ? header.slice(7) : "");
+
+  if (candidate) {
+    const user = await resolveMcpKey(env, candidate);
+    if (user) return user;
+    // A key-shaped credential that resolves to nothing is a revoked or mistyped
+    // key. Say so instead of falling through to a generic "sign in" error.
+    if (pathKey) return mcpAuthError("That PageDrop MCP key is not valid. It may have been rotated — copy the current URL from your PageDrop dashboard.");
+  }
+
+  const auth = await authenticate(request, env, url);
+  if (auth instanceof Response) {
+    return mcpAuthError("This endpoint needs your personal PageDrop MCP URL. Sign in at PageDrop and copy the URL that ends in /mcp/<your key>.");
+  }
+  return auth;
+}
+
+/** The handler only matches its configured route, so strip the key segment off. */
+function atRoute(request: Request, url: URL): Request {
+  if (url.pathname === ROUTE) return request;
+  const rewritten = new URL(url);
+  rewritten.pathname = ROUTE;
+  return new Request(rewritten, request);
+}
+
+/**
+ * 403, not 401: without an OAuth authorization server to point at, a 401 sends
+ * MCP clients into a discovery flow that can only dead-end. 403 surfaces the
+ * message instead.
+ */
+function mcpAuthError(message: string): Response {
+  return json({ error: message }, 403);
 }
 
 function createPageDropServer(env: Env, origin: string, user: User): McpServer {
