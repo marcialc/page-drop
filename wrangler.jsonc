@@ -1,4 +1,5 @@
 {
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "pagedrop",
   "main": "./worker/index.ts",
   "compatibility_date": "2025-05-01",
@@ -14,11 +15,10 @@
     "run_worker_first": ["/api/*", "/p/*"]
   },
 
-  // Paste the id printed by: npx wrangler kv namespace create SITES
   "kv_namespaces": [
     {
       "binding": "SITES",
-      "id": "PASTE_YOUR_KV_NAMESPACE_ID_HERE"
+      "id": "09cfa97cd13e42d4904dded6fe1bd2d7"
     }
   ]
 
