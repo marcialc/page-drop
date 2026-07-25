@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ConfigResponse, PublishedPage, User } from "../shared/types";
 import AccountPanel from "./components/AccountPanel";
 import DropZone from "./components/DropZone";
+import Footer from "./components/Footer";
 import LoginScreen from "./components/LoginScreen";
 import PageList from "./components/PageList";
 import Ticket from "./components/Ticket";
@@ -231,13 +232,7 @@ export default function App() {
         onDelete={remove}
       />
 
-      <footer className="mt-11 text-[11.5px] leading-loose text-muted">
-        <b className="font-bold text-ink">Ship straight from the terminal:</b>
-        <br />
-        <code className="rounded-sm bg-line px-1.5 py-0.5 text-[12px] break-all">
-          {`curl -X POST ${origin}/api/upload -H "Authorization: Bearer AUTH_TOKEN" -H "Content-Type: text/html" --data-binary @index.html`}
-        </code>
-      </footer>
+      <Footer origin={origin} />
     </div>
   );
 }
